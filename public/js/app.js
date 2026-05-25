@@ -33,11 +33,23 @@ async function onPayPalWebSdkLoaded() {
 
   try {
     // -------------------------------------------------------
+    // clientToken をサーバーから取得
+    // findEligibleMethods（card-fields の適格性チェック）に必要
+    // -------------------------------------------------------
+    let clientToken;
+    try {
+      clientToken = await PayPalAPI.getClientToken();
+    } catch (tokenErr) {
+      console.warn("clientToken 取得失敗（カード適格性チェックが制限される可能性あり）:", tokenErr.message);
+    }
+
+    // -------------------------------------------------------
     // SDK インスタンスを作成
-    // 全コンポーネントを一括指定（Fastlane は clientToken が必要なため別途初期化）
+    // 全コンポーネントを一括指定
     // -------------------------------------------------------
     sdkInstance = await window.paypal.createInstance({
-      clientId,   // 上で取得済み
+      clientId,
+      ...(clientToken && { clientToken }),  // 取得できた場合のみ渡す
       components: [
         "paypal-payments",       // PayPal / Pay Later / Credit ボタン
         "card-fields",           // インラインカードフォーム

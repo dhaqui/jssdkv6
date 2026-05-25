@@ -48,10 +48,33 @@ async function getAccessToken() {
 
 // -------------------------------------------------------
 // GET /paypal-api/auth/browser-safe-client-token
-// Fastlane・カード保管用のクライアントトークンを返す
+// ACDC・Fastlane 共用のクライアントトークンを返す
+//
+// 【取得方法】
+//  1. まず /v1/identity/generate-token（標準。ACDC/card-fields に対応）を試みる
+//  2. 失敗した場合は response_type=client_token（Fastlane 向け）にフォールバック
 // -------------------------------------------------------
 app.get("/paypal-api/auth/browser-safe-client-token", async (req, res) => {
   try {
+    const accessToken = await getAccessToken();
+
+    // ── 方法1: /v1/identity/generate-token（ACDC・一般用途）──
+    const tokenRes = await fetch(`${PAYPAL_API_BASE}/v1/identity/generate-token`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "Accept-Language": "en_US",
+      },
+    });
+
+    if (tokenRes.ok) {
+      const data = await tokenRes.json();
+      return res.json({ accessToken: data.client_token, expiresIn: data.expires_in });
+    }
+
+    // ── 方法2: response_type=client_token（Fastlane 向けフォールバック）──
+    console.warn("generate-token 失敗、Fastlane 方式にフォールバック");
     const credentials = Buffer.from(
       `${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`
     ).toString("base64");
@@ -60,12 +83,10 @@ app.get("/paypal-api/auth/browser-safe-client-token", async (req, res) => {
       grant_type: "client_credentials",
       response_type: "client_token",
     });
-
-    // Fastlane のドメイン制限（環境変数で上書き可）
     const domain = process.env.APP_DOMAIN || req.hostname;
     body.append("domains[]", domain);
 
-    const tokenRes = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
+    const fallbackRes = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
       method: "POST",
       headers: {
         Authorization: `Basic ${credentials}`,
@@ -74,8 +95,14 @@ app.get("/paypal-api/auth/browser-safe-client-token", async (req, res) => {
       body: body.toString(),
     });
 
-    const data = await tokenRes.json();
-    res.json({ accessToken: data.access_token, expiresIn: data.expires_in });
+    if (!fallbackRes.ok) {
+      const err = await fallbackRes.text();
+      throw new Error(`クライアントトークン取得失敗: ${fallbackRes.status} ${err}`);
+    }
+
+    const fallbackData = await fallbackRes.json();
+    res.json({ accessToken: fallbackData.access_token, expiresIn: fallbackData.expires_in });
+
   } catch (err) {
     console.error("クライアントトークン取得エラー:", err);
     res.status(500).json({ error: err.message });
