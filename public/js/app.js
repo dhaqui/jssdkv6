@@ -142,24 +142,7 @@ function getClientIdFromMeta() {
 }
 
 // -------------------------------------------------------
-// フォールバック初期化
-// SDK スクリプトに async を付けているため、まれに SDK が app.js より
-// 先に読み込まれるケースがある。その場合は DOMContentLoaded 後に
-// 手動で onPayPalWebSdkLoaded() を呼び出す。
+// 注：初期化は index.html の <script>onPayPalWebSdkLoaded();</script> から
+// 直接呼ばれます。SDK スクリプトを同期ロードすることで、
+// この関数が呼ばれる時点で window.paypal が確実に利用可能になっています。
 // -------------------------------------------------------
-(function bootstrap() {
-  function tryInit() {
-    if (typeof window.paypal !== "undefined") {
-      // SDK はすでに読み込み済みだが onPayPalWebSdkLoaded が呼ばれていない
-      console.log("PayPal SDK 検出（フォールバック初期化）");
-      onPayPalWebSdkLoaded();
-    }
-    // SDK がまだの場合は SDK script の onload に任せる（正常フロー）
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", tryInit);
-  } else {
-    tryInit();
-  }
-})();
