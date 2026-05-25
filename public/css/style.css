@@ -21,6 +21,9 @@
 
 /* --- リセット & ベース --- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* hidden 属性を確実に非表示にする（CSS の display 指定に上書きされないよう !important） */
+[hidden] { display: none !important; }
 html { font-size: 15px; }
 body {
   font-family: Arial, "Hiragino Sans", "Yu Gothic", sans-serif;

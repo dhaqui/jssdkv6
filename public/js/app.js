@@ -1,15 +1,33 @@
 // ============================================================
 // app.js — エントリーポイント
-// PayPal SDK 読み込み完了後に呼び出される onPayPalWebSdkLoaded を実装
+//
+// 【読み込み順序の仕組み】
+//  1. config.js / api.js / ui.js / *-buttons.js / app.js が先に読み込まれる
+//  2. その後 PayPal SDK スクリプト（async）が読み込まれる
+//  3. SDK は window.onPayPalWebSdkLoaded が定義済みであれば呼び出す
+//  4. 念のため SDK が先に読み込まれた場合のフォールバックとして
+//     window.paypal が既に存在すれば DOMContentLoaded 後に直接呼び出す
 // ============================================================
 
 /**
  * PayPal SDK v6 のスクリプトが読み込まれると自動的に呼ばれる
- * （script タグの読み込み完了 → window.paypal が利用可能になった状態）
  */
 async function onPayPalWebSdkLoaded() {
   UI.showLoading("PayPal SDK を初期化しています…");
   UI.setStatus("init", "loading");
+
+  // Client ID の事前チェック
+  const clientId = getClientIdFromMeta();
+  if (!clientId) {
+    UI.setStatus("init", "ng");
+    UI.hideLoading();
+    UI.toast(
+      "⚠️ PayPal Client ID が未設定です。" +
+      "index.html の <meta name=\"paypal-client-id\"> に" +
+      "サンドボックスの Client ID を設定してください。"
+    );
+    return;
+  }
 
   let sdkInstance;
 
@@ -19,7 +37,7 @@ async function onPayPalWebSdkLoaded() {
     // 全コンポーネントを一括指定（Fastlane は clientToken が必要なため別途初期化）
     // -------------------------------------------------------
     sdkInstance = await window.paypal.createInstance({
-      clientId: getClientIdFromMeta(),   // HTML の meta タグ or 環境変数から取得
+      clientId,   // 上で取得済み
       components: [
         "paypal-payments",       // PayPal / Pay Later / Credit ボタン
         "card-fields",           // インラインカードフォーム
@@ -122,3 +140,26 @@ function getClientIdFromMeta() {
   );
   return "";
 }
+
+// -------------------------------------------------------
+// フォールバック初期化
+// SDK スクリプトに async を付けているため、まれに SDK が app.js より
+// 先に読み込まれるケースがある。その場合は DOMContentLoaded 後に
+// 手動で onPayPalWebSdkLoaded() を呼び出す。
+// -------------------------------------------------------
+(function bootstrap() {
+  function tryInit() {
+    if (typeof window.paypal !== "undefined") {
+      // SDK はすでに読み込み済みだが onPayPalWebSdkLoaded が呼ばれていない
+      console.log("PayPal SDK 検出（フォールバック初期化）");
+      onPayPalWebSdkLoaded();
+    }
+    // SDK がまだの場合は SDK script の onload に任せる（正常フロー）
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", tryInit);
+  } else {
+    tryInit();
+  }
+})();
