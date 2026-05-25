@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PayPal JS SDK v6 — 決済デモ</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <!-- ★ 自分のサンドボックス Client ID に書き換えてください ★ -->
+  <meta name="paypal-client-id" content="YOUR_SANDBOX_CLIENT_ID" />
+
+  <!-- PayPal JS SDK v6 (サンドボックス) -->
+  <!-- 本番環境では sandbox. を削除: https://www.paypal.com/web-sdk/v6/core -->
+  <script src="https://www.sandbox.paypal.com/web-sdk/v6/core"></script>
+</head>
+<body>
+
+  <!-- ===== ヘッダー ===== -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <svg width="90" height="22" viewBox="0 0 90 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <text x="0" y="18" font-size="18" font-weight="700" fill="#ffffff" font-family="Arial">PayPal</text>
+        </svg>
+        <span class="demo-badge">SDK v6 Demo</span>
+      </div>
+      <div class="header-env" id="env-badge">Sandbox</div>
+    </div>
+  </header>
+
+  <!-- ===== メインコンテンツ ===== -->
+  <main class="checkout-layout">
+
+    <!-- 左カラム：商品サマリー -->
+    <aside class="order-summary">
+      <h2 class="summary-title">注文内容</h2>
+
+      <div class="product-card">
+        <div class="product-img">🛍️</div>
+        <div class="product-info">
+          <p class="product-name">PayPal SDK v6 デモ商品</p>
+          <p class="product-desc">JavaScript SDK v6 統合テスト用サンプル商品</p>
+          <p class="product-qty">数量：1</p>
+        </div>
+        <div class="product-price">$25.00</div>
+      </div>
+
+      <div class="order-total-row">
+        <span>小計</span><span>$25.00</span>
+      </div>
+      <div class="order-total-row">
+        <span>送料</span><span>$0.00</span>
+      </div>
+      <div class="order-total-row total">
+        <span>合計</span><span>$25.00</span>
+      </div>
+
+      <!-- SDK ステータスカード -->
+      <div class="sdk-status-card" id="sdk-status-card">
+        <div class="sdk-status-header">SDK ステータス</div>
+        <div class="sdk-status-row">
+          <span>初期化</span>
+          <span id="status-init" class="badge badge-pending">待機中</span>
+        </div>
+        <div class="sdk-status-row">
+          <span>PayPal</span>
+          <span id="status-paypal" class="badge badge-pending">—</span>
+        </div>
+        <div class="sdk-status-row">
+          <span>Pay Later</span>
+          <span id="status-paylater" class="badge badge-pending">—</span>
+        </div>
+        <div class="sdk-status-row">
+          <span>Credit</span>
+          <span id="status-credit" class="badge badge-pending">—</span>
+        </div>
+        <div class="sdk-status-row">
+          <span>Card Fields</span>
+          <span id="status-card" class="badge badge-pending">—</span>
+        </div>
+        <div class="sdk-status-row">
+          <span>Google Pay</span>
+          <span id="status-gpay" class="badge badge-pending">—</span>
+        </div>
+        <div class="sdk-status-row">
+          <span>Apple Pay</span>
+          <span id="status-applepay" class="badge badge-pending">—</span>
+        </div>
+        <div class="sdk-status-row">
+          <span>Fastlane</span>
+          <span id="status-fastlane" class="badge badge-pending">—</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 右カラム：決済手段 -->
+    <section class="payment-panel">
+      <h2 class="panel-title">お支払い方法を選択</h2>
+
+      <!-- ローディングオーバーレイ -->
+      <div id="loading-overlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p>PayPal SDK を読み込んでいます…</p>
+      </div>
+
+      <!-- ===== 1. PayPal 高速チェックアウト ===== -->
+      <div class="payment-section" id="section-paypal">
+        <div class="section-header">
+          <span class="section-icon">⚡</span>
+          <h3>PayPal で高速チェックアウト</h3>
+        </div>
+
+        <div class="button-group" id="paypal-button-group">
+          <!-- PayPal ボタン（web component） -->
+          <div id="paypal-button-wrapper" hidden>
+            <p class="button-label">PayPal</p>
+            <paypal-button id="paypal-button" hidden></paypal-button>
+          </div>
+
+          <!-- Pay Later ボタン -->
+          <div id="paylater-button-wrapper" hidden>
+            <p class="button-label">Pay Later（後払い）</p>
+            <paypal-pay-later-button id="pay-later-button" hidden></paypal-pay-later-button>
+          </div>
+
+          <!-- PayPal Credit ボタン -->
+          <div id="credit-button-wrapper" hidden>
+            <p class="button-label">PayPal Credit</p>
+            <paypal-credit-button id="credit-button" hidden></paypal-credit-button>
+          </div>
+        </div>
+
+        <p class="not-eligible-msg" id="paypal-not-eligible" hidden>
+          この地域では PayPal 決済は利用できません。
+        </p>
+      </div>
+
+      <div class="section-divider">または</div>
+
+      <!-- ===== 2. Fastlane ゲスト高速チェックアウト ===== -->
+      <div class="payment-section" id="section-fastlane">
+        <div class="section-header">
+          <span class="section-icon">🏎️</span>
+          <h3>Fastlane — ゲスト高速チェックアウト</h3>
+          <span class="badge-new">NEW</span>
+        </div>
+        <p class="section-desc">
+          メールアドレスを入力すると、保存済みの支払い情報で素早く完了できます。
+        </p>
+
+        <div id="fastlane-container">
+          <div class="fastlane-email-row">
+            <input
+              type="email"
+              id="fastlane-email"
+              class="input-field"
+              placeholder="メールアドレスを入力"
+              autocomplete="email"
+            />
+            <button id="fastlane-lookup-btn" class="btn btn-secondary">確認</button>
+          </div>
+
+          <!-- Fastlane 認証済みプロファイル表示エリア -->
+          <div id="fastlane-profile" hidden>
+            <div class="fastlane-profile-card">
+              <p class="fastlane-name" id="fastlane-name"></p>
+              <p class="fastlane-card" id="fastlane-card"></p>
+              <button id="fastlane-change-btn" class="btn-link">変更</button>
+            </div>
+          </div>
+
+          <!-- Fastlane ウォーターマーク（必須） -->
+          <div id="fastlane-watermark"></div>
+
+          <button id="fastlane-pay-btn" class="btn btn-primary btn-full" hidden>
+            Fastlane で支払う — $25.00
+          </button>
+        </div>
+
+        <p class="not-eligible-msg" id="fastlane-not-eligible" hidden>
+          Fastlane はこの環境では利用できません。
+        </p>
+      </div>
+
+      <div class="section-divider">または</div>
+
+      <!-- ===== 3. カード直接入力（Card Fields） ===== -->
+      <div class="payment-section" id="section-card">
+        <div class="section-header">
+          <span class="section-icon">💳</span>
+          <h3>クレジット / デビットカード</h3>
+        </div>
+
+        <form id="card-form" novalidate>
+          <div class="field-group">
+            <label class="field-label">カード番号</label>
+            <div id="card-number-field" class="card-field-container"></div>
+          </div>
+
+          <div class="field-row">
+            <div class="field-group">
+              <label class="field-label">有効期限</label>
+              <div id="card-expiry-field" class="card-field-container"></div>
+            </div>
+            <div class="field-group">
+              <label class="field-label">セキュリティコード</label>
+              <div id="card-cvv-field" class="card-field-container"></div>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">カード名義人</label>
+            <div id="card-name-field" class="card-field-container"></div>
+          </div>
+
+          <p id="card-error-msg" class="error-msg" hidden></p>
+
+          <button type="submit" id="card-submit-btn" class="btn btn-primary btn-full" disabled>
+            カードで支払う — $25.00
+          </button>
+        </form>
+
+        <p class="not-eligible-msg" id="card-not-eligible" hidden>
+          カード決済はこの環境では利用できません。
+        </p>
+      </div>
+
+      <div class="section-divider">または</div>
+
+      <!-- ===== 4. デジタルウォレット ===== -->
+      <div class="payment-section" id="section-wallets">
+        <div class="section-header">
+          <span class="section-icon">📱</span>
+          <h3>デジタルウォレット</h3>
+        </div>
+
+        <!-- Google Pay -->
+        <div id="google-pay-wrapper" hidden>
+          <p class="button-label">Google Pay</p>
+          <div id="google-pay-button"></div>
+        </div>
+
+        <!-- Apple Pay -->
+        <div id="apple-pay-wrapper" hidden>
+          <p class="button-label">Apple Pay</p>
+          <div id="apple-pay-button"></div>
+        </div>
+
+        <p class="not-eligible-msg" id="wallet-not-eligible" hidden>
+          デジタルウォレット（Google Pay / Apple Pay）はこのデバイス・ブラウザでは利用できません。
+        </p>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- ===== 処理中オーバーレイ ===== -->
+  <div id="processing-overlay" class="processing-overlay" hidden>
+    <div class="processing-inner">
+      <div class="spinner large"></div>
+      <p id="processing-msg">決済を処理しています…</p>
+    </div>
+  </div>
+
+  <!-- ===== エラートースト ===== -->
+  <div id="toast" class="toast" hidden></div>
+
+  <!-- フロントエンド JS -->
+  <script src="/js/config.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/ui.js"></script>
+  <script src="/js/paypal-buttons.js"></script>
+  <script src="/js/card-fields.js"></script>
+  <script src="/js/google-pay.js"></script>
+  <script src="/js/apple-pay.js"></script>
+  <script src="/js/fastlane.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

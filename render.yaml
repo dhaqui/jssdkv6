@@ -1,0 +1,27 @@
+# ============================================================
+# render.yaml — Render デプロイ設定
+# GitHub リポジトリのルートに置くと Render が自動で読み込む
+# ============================================================
+
+services:
+  - type: web
+    name: paypal-sdk-v6-demo
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: PAYPAL_ENV
+        value: sandbox          # 本番時は "live" に変更
+      - key: PAYPAL_CLIENT_ID
+        sync: false              # Render ダッシュボードで手動設定
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false              # Render ダッシュボードで手動設定
+      - key: APP_DOMAIN
+        fromService:
+          type: web
+          name: paypal-sdk-v6-demo
+          property: host         # Render が自動的にホスト名を注入
+    healthCheckPath: /paypal-api/health
+    autoDeploy: true
